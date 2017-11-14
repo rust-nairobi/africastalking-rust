@@ -6,6 +6,8 @@
 //         unused_import_braces, unused_qualifications)]
 //
 #[macro_use]
+extern crate error_chain;
+#[macro_use]
 extern crate hyper;
 extern crate reqwest;
 extern crate serde;
@@ -13,7 +15,6 @@ extern crate serde;
 extern crate serde_json as json;
 
 use std::io::Read;
-use std::error::Error;
 use std::collections::HashMap;
 
 use serde::ser::Serialize;
@@ -23,6 +24,20 @@ header! { (Apikey, "apikey") => [String] }
 #[allow(unused_variables)]
 trait HttpAccessMethods {
     fn send_request(&self, url: &str, data: Option<HashMap<&str, &str>>) {}
+}
+
+error_chain! {
+    foreign_links {
+        Network(reqwest::Error);
+        Io(::std::io::Error);
+        Json(json::Error);
+    }
+    errors {
+        GatewayError(e: String){
+            description("Gateway error"),
+            display("{}", e),
+        } }
+
 }
 
 #[allow(unused_variables)]
@@ -78,26 +93,25 @@ impl AfricasTalkingGateway {
         }
     }
 
-    pub fn get_user_data(&self) -> Result<json::Value, Box<::std::error::Error>> {
+    pub fn get_user_data(&self) -> Result<json::Value> {
         let url = format!("{}?username={}", self.user_data_url, self.username);
-        let resp = self.send_request(&url, None)?;
-        let val: json::Value = json::from_str(&resp)?;
+        let val: json::Value = self.send_request(&url, None)?;
 
         Ok(val)
-
     }
 
     #[allow(unused_variables)]
-    pub fn send_message(&self,
-                        to: &str,
-                        message: &str,
-                        from: &str,
-                        bulk_sms_mode: bool,
-                        enqueue: i32,
-                        keyword: &str,
-                        link_id: &str,
-                        retry_duration_in_hours: i32)
-                        -> Result<json::Value, Box<Error>> {
+    pub fn send_message(
+        &self,
+        to: &str,
+        message: &str,
+        from: &str,
+        bulk_sms_mode: bool,
+        enqueue: i32,
+        keyword: &str,
+        link_id: &str,
+        retry_duration_in_hours: i32,
+    ) -> Result<json::Value> {
         let params = json!({
             "username": self.username,
             "to": to,
@@ -111,26 +125,26 @@ impl AfricasTalkingGateway {
         Ok(val)
     }
 
-    fn send_request(&self,
-                    url: &str,
-                    data: Option<HashMap<&str, &str>>)
-                    -> Result<String, Box<::std::error::Error>> {
+    fn send_request(&self, url: &str, data: Option<HashMap<&str, &str>>) -> Result<json::Value> {
         let mut headers = Headers::new();
         headers.set(Accept::json());
         headers.set(Apikey(self.api_key.clone()));
         let client = reqwest::Client::new();
         let mut resp = match data {
-            Some(map) => {
-                client.post(url)
-                    .json(&map)
-                    .send()?
-            }
-            None => {
-                client.get(url)
-                    .headers(headers)
-                    .send()?
-            }
+            Some(map) => client.post(url).json(&map).send()?,
+            None => client.get(url).headers(headers).send()?,
         };
+
+        Ok(resp.json()?)
+    }
+
+
+    fn send_form_data<T: Serialize>(&self, url: &str, data: T) -> Result<String> {
+        let mut headers = Headers::new();
+        headers.set(Accept::json());
+        headers.set(Apikey(self.api_key.clone()));
+        let client = reqwest::Client::new();
+        let mut resp = client.post(url).form(&data).headers(headers).send()?;
 
         let mut buf = String::new();
         resp.read_to_string(&mut buf)?;
@@ -138,24 +152,130 @@ impl AfricasTalkingGateway {
         Ok(buf)
     }
 
-
-    fn send_form_data<T: Serialize>(&self,
-                                    url: &str,
-                                    data: T)
-                                    -> Result<String, Box<::std::error::Error>> {
+    fn send_json_request<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::Response> {
         let mut headers = Headers::new();
         headers.set(Accept::json());
         headers.set(Apikey(self.api_key.clone()));
         let client = reqwest::Client::new();
-        let mut resp = client.post(url)
-            .form(&data)
+        let resp = client
+            .post(url)
+            .json(&data)
             .headers(headers)
-            .send()?;
+            .send()
+            .chain_err(|| "network error");
 
-        let mut buf = String::new();
-        resp.read_to_string(&mut buf)?;
+        resp
+    }
 
-        Ok(buf)
+    ///  Initiate a checkout request on a subscriber's phone number.
+    ///  [read more ..](http://docs.africastalking.com/mobile/checkout)
+    pub fn init_mobile_payment_checkout(
+        &self,
+        product_name: &str,
+        phone_number: &str,
+        currency_code: &str,
+        provider_channel: &str,
+        amount: f32,
+        metadata: HashMap<&str, &str>,
+    ) -> Result<json::Value> {
+        let params = json!({
+            "username": self.username,
+            "productName": product_name,
+            "phoneNumber": phone_number,
+            "currencyCode": currency_code,
+            "providerChannel": provider_channel,
+            "amount": amount,
+            "metadata": metadata
+        });
+        let mut resp = self.send_json_request(&self.mobi_payment_checkout_url, Some(params))?;
+        if resp.status().as_u16() == 201 {
+            let jsn: json::Value = resp.json()?;
+            let entries: json::Value = jsn.get("entries").unwrap().clone();
+            if jsn["entries"].as_array().unwrap().len() > 0 {
+                return Ok(entries);
+            } else {
+                // raise error
+                Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
+            }
+        } else {
+            // raise error
+            Err(ErrorKind::GatewayError(format!("{:?}", resp)).into())
+        }
+    }
+
+    /// Request B2B payment to a business.
+    /// [read more..](http://docs.africastalking.com/mobile/b2b)
+    pub fn mobile_payment_b2b_request(
+        &self,
+        product_name: &str,
+        provider_data: HashMap<&str, &str>,
+        currency_code: &str,
+        amount: f32,
+        metadata: HashMap<&str, &str>,
+    ) -> Result<json::Value> {
+        for field in vec![
+            "provider",
+            "destination_channel",
+            "destination_account",
+            "transfer_type",
+        ] {
+            assert!(
+                provider_data.contains_key(field),
+                format!("Missing field {} in provider data", field)
+            );
+        }
+
+        let params = json!({
+            "username": self.username,
+            "productName": product_name,
+            "provider": provider_data.get("provider").unwrap(),
+            "destinationChannel": provider_data.get("destination_channel").unwrap(),
+            "destinationAccount": provider_data.get("destination_account").unwrap(),
+            "transferType": provider_data.get("transfer_type").unwrap(),
+            "currencyCode": currency_code,
+            "amount": amount,
+            "metadata": metadata
+        });
+
+        let mut resp = self.send_json_request(&self.mobi_payment_b2b_url, Some(params))?;
+        if resp.status().as_u16() == 201 {
+            let jsn: json::Value = resp.json()?;
+            Ok(jsn)
+        } else {
+            // raise error
+            Err(ErrorKind::GatewayError(format!("{:?}", resp)).into())
+        }
+    }
+
+    /// Request Business-to-Consumer payment to  mobile subscribers phone numbers.
+    /// [read more..](http://docs.africastalking.com/mobile/b2c)
+    pub fn mobile_payment_b2c_request(
+        &self,
+        product_name: &str,
+        recipients: json::Value,
+    ) -> Result<json::Value> {
+        assert!(
+            recipients.as_array().unwrap().len() <= 10,
+            "Recipients should not be greater than 10"
+        );
+        let params = json!({
+            "username": self.username,
+            "productName": product_name,
+            "recipients": recipients
+        });
+
+        let mut resp = self.send_json_request(&self.mobi_payment_b2c_url, Some(params))?;
+        if resp.status().as_u16() == 201 {
+            let jsn: json::Value = resp.json()?;
+            let entries: json::Value = jsn.get("entries").unwrap().clone();
+            if jsn["entries"].as_array().unwrap().len() > 0 {
+                return Ok(entries);
+            } else {
+                Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
+            }
+        } else {
+            Err(ErrorKind::GatewayError(format!("{:?}", resp.text()?)).into())
+        }
     }
 }
 
