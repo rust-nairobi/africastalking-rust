@@ -161,10 +161,9 @@ impl AfricasTalkingGateway {
             .post(url)
             .json(&data)
             .headers(headers)
-            .send()
-            .chain_err(|| "network error");
+            .send()?;
 
-        resp
+        Ok(resp)
     }
 
     ///  Initiate a checkout request on a subscriber's phone number.
