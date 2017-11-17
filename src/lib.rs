@@ -54,7 +54,7 @@ pub struct AfricasTalkingGateway {
     sms_url: String,
     voice_url: String,
     sms_subscription_url: String,
-    airtime_url: String,
+    send_airtime_url: String,
     mobi_payment_checkout_url: String,
     mobi_payment_b2c_url: String,
     mobi_payment_b2b_url: String,
@@ -86,7 +86,7 @@ impl AfricasTalkingGateway {
             sms_url: format!("{}/version1/messaging", api_host),
             voice_url: format!("{}", voice_host),
             sms_subscription_url: format!("{}/version1/subscription", api_host),
-            airtime_url: format!("{}/version1/airtime", api_host),
+            send_airtime_url: format!("{}/version1/airtime/send", api_host),
             mobi_payment_checkout_url: format!("{}/mobile/checkout/request", payments_host),
             mobi_payment_b2c_url: format!("{}/mobile/b2c/request", payments_host),
             mobi_payment_b2b_url: format!("{}/mobile/b2b/request", payments_host),
@@ -119,8 +119,11 @@ impl AfricasTalkingGateway {
             "bulkSMSMode": bulk_sms_mode as i32
         });
 
-        let resp = self.send_form_data(&self.sms_url, params)?;
-        let val: json::Value = json::from_str(&resp)?;
+        let mut resp = self.send_form_data(&self.sms_url, params)?;
+        let mut buf = String::new();
+        resp.read_to_string(&mut buf)?;
+
+        let val: json::Value = json::from_str(&buf)?;
 
         Ok(val)
     }
@@ -139,17 +142,14 @@ impl AfricasTalkingGateway {
     }
 
 
-    fn send_form_data<T: Serialize>(&self, url: &str, data: T) -> Result<String> {
+    fn send_form_data<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::Response> {
         let mut headers = Headers::new();
         headers.set(Accept::json());
         headers.set(Apikey(self.api_key.clone()));
         let client = reqwest::Client::new();
-        let mut resp = client.post(url).form(&data).headers(headers).send()?;
+        let resp = client.post(url).form(&data).headers(headers).send()?;
 
-        let mut buf = String::new();
-        resp.read_to_string(&mut buf)?;
-
-        Ok(buf)
+        Ok(resp)
     }
 
     fn send_json_request<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::Response> {
@@ -166,7 +166,44 @@ impl AfricasTalkingGateway {
         Ok(resp)
     }
 
-    ///  Initiate a checkout request on a subscriber's phone number.
+    /// Sends airtime. [docs reference](http://docs.africastalking.com/airtime/sending)
+    ///
+    /// `recipients` is a json array of the format
+    ///
+    /// ```json,ignore
+    /// [
+    ///   {
+    ///     "phoneNumber":"+254711XXXYYY",
+    ///     "amount":"KES X"
+    ///   },
+    ///   {
+    ///     "phoneNumber":"+254733YYYZZZ",
+    ///     "amount":"KES Y"
+    ///   }
+    /// ]
+    /// ```
+    pub fn send_airtime(&self, recipients: json::Value) -> Result<json::Value> {
+        let params = json!({
+            "username": self.username,
+            "recipients": recipients
+        });
+        let mut resp = self.send_form_data(&self.send_airtime_url, params)?;
+        if resp.status().as_u16() == 201 {
+            let jsn: json::Value = resp.json()?;
+            let responses: json::Value = jsn.get("responses").unwrap().clone();
+            if jsn["responses"].as_array().unwrap().len() > 0 {
+                return Ok(responses);
+            } else {
+                // raise error
+                Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
+            }
+        } else {
+            // raise error
+            Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
+        }
+    }
+
+    ///  Initiates a checkout request on a subscriber's phone number.
     ///  [read more ..](http://docs.africastalking.com/mobile/checkout)
     pub fn init_mobile_payment_checkout(
         &self,
@@ -198,11 +235,11 @@ impl AfricasTalkingGateway {
             }
         } else {
             // raise error
-            Err(ErrorKind::GatewayError(format!("{:?}", resp)).into())
+            Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
         }
     }
 
-    /// Request B2B payment to a business.
+    /// Requests a Business-to-Business payment to a business via their provider channel.
     /// [read more..](http://docs.africastalking.com/mobile/b2b)
     pub fn mobile_payment_b2b_request(
         &self,
@@ -246,7 +283,7 @@ impl AfricasTalkingGateway {
         }
     }
 
-    /// Request Business-to-Consumer payment to  mobile subscribers phone numbers.
+    /// Requests a Business-to-Consumer payment to  mobile subscribers phone numbers.
     /// [read more..](http://docs.africastalking.com/mobile/b2c)
     pub fn mobile_payment_b2c_request(
         &self,
