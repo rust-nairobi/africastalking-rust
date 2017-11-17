@@ -157,13 +157,75 @@ impl AfricasTalkingGateway {
         headers.set(Accept::json());
         headers.set(Apikey(self.api_key.clone()));
         let client = reqwest::Client::new();
-        let resp = client
-            .post(url)
-            .json(&data)
-            .headers(headers)
-            .send()?;
+        let resp = client.post(url).json(&data).headers(headers).send()?;
 
         Ok(resp)
+    }
+
+    /// Makes voice call. [docs reference](http://docs.africastalking.com/voice/call)
+    pub fn call(&self, from: &str, to: &str) -> Result<json::Value> {
+        let params = json!({
+            "username": self.username,
+            "from": from,
+            "to": to
+        });
+        let url = format!("{}/call", self.voice_url);
+        let mut resp = self.send_form_data(&url, params)?;
+        let jsn: json::Value = resp.json()?;
+        let entries: json::Value = jsn.get("entries").unwrap().clone();
+        if jsn["errorMessage"].as_str().unwrap() == "None" {
+            return Ok(entries);
+        } else {
+            // raise error
+            Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
+        }
+    }
+
+    /// Gets queued calls. [docs reference](http://docs.africastalking.com/voice/queuedcalls)
+    pub fn get_queued_calls(
+        &self,
+        phone_number: &str,
+        queue_name: Option<&str>,
+    ) -> Result<json::Value> {
+        let params = if queue_name.is_some() {
+            json!({
+                "username": self.username,
+                "phoneNumbers": phone_number,
+                "queueName": queue_name
+            })
+        } else {
+            json!({
+                "username": self.username,
+                "phoneNumbers": phone_number
+            })
+        };
+        let url = format!("{}/queueStatus", self.voice_url);
+        let mut resp = self.send_form_data(&url, params)?;
+        let jsn: json::Value = resp.json()?;
+        let entries: json::Value = jsn.get("entries").unwrap().clone();
+        if jsn["errorMessage"].as_str().unwrap() == "None" {
+            return Ok(entries);
+        } else {
+            // raise error
+            Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
+        }
+    }
+
+    /// Uploads Media File. [docs reference](http://docs.africastalking.com/voice/uploadmedia)
+    pub fn upload_media_file(&self, media_url: &str) -> Result<json::Value> {
+        let params = json!({
+            "username": self.username,
+            "url": media_url,
+        });
+        let url = format!("{}/mediaUpload", self.voice_url);
+        let mut resp = self.send_form_data(&url, params)?;
+        let jsn: json::Value = resp.json()?;
+        if jsn["errorMessage"].as_str().unwrap() == "None" {
+            return Ok(jsn);
+        } else {
+            // raise error
+            Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
+        }
     }
 
     /// Sends airtime. [docs reference](http://docs.africastalking.com/airtime/sending)

@@ -1,5 +1,4 @@
 extern crate africastalking_gateway;
-#[macro_use]
 extern crate serde_json;
 
 use std::env;
@@ -12,12 +11,8 @@ pub fn main() {
     let apikey = env::var("AFRICAS_TALKING_APIKEY").unwrap();
     let gateway = AfricasTalkingGateway::new(&username, &apikey, "sandbox");
 
-    let recipients = json!([
-                           {
-     "phoneNumber": "+254702006545",
-     "amount": "KES 500"
-     }
-    ]);
+    println!("{:?}", gateway.call("+254702006545", "+254702006545"));
 
-    println!("{:?}", gateway.send_airtime(recipients));
+    // check  queue status
+    println!("{:?}", gateway.get_queued_calls("+254702006545", None));
 }
