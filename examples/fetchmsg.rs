@@ -9,17 +9,5 @@ pub fn main() {
     let apikey = env::var("AFRICAS_TALKING_APIKEY").unwrap();
     let gway = AfricasTalkingGateway::new(&username, &apikey, "sandbox");
 
-    println!(
-        "{}",
-        gway.send_message(
-            "+254702006545",
-            "hello matt",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None
-        ).unwrap()
-    );
+    println!("{}", gway.fetch_messages(0).unwrap());
 }
