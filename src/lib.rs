@@ -12,6 +12,8 @@ extern crate hyper;
 extern crate reqwest;
 extern crate serde;
 #[macro_use]
+extern crate serde_derive;
+#[macro_use]
 extern crate serde_json as json;
 
 use std::io::Read;
@@ -43,6 +45,20 @@ error_chain! {
 #[allow(unused_variables)]
 trait UserData {
     fn get_user_data(&self) {}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[allow(non_snake_case)]
+pub struct SMSMessage<'a> {
+    username: &'a str,
+    to: &'a str,
+    message: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")] bulkSMSMode: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")] from: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")] enqueue: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")] keyword: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")] linkId: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")] retryDurationInHours: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -95,31 +111,37 @@ impl AfricasTalkingGateway {
 
     pub fn get_user_data(&self) -> Result<json::Value> {
         let url = format!("{}?username={}", self.user_data_url, self.username);
-        let val: json::Value = self.send_request(&url, None)?;
+        let val: json::Value = self.send_request(&url, None)?.json()?;
 
         Ok(val)
     }
 
-    #[allow(unused_variables)]
+    /// Sends an SMS message
+    /// [read more..](http://docs.africastalking.com/sms/sending)
     pub fn send_message(
         &self,
         to: &str,
         message: &str,
-        from: &str,
-        bulk_sms_mode: bool,
-        enqueue: i32,
-        keyword: &str,
-        link_id: &str,
-        retry_duration_in_hours: i32,
+        from: Option<&str>,
+        bulk_sms_mode: Option<i32>,
+        enqueue: Option<i32>,
+        keyword: Option<&str>,
+        link_id: Option<&str>,
+        retry_duration_in_hours: Option<i32>,
     ) -> Result<json::Value> {
-        let params = json!({
-            "username": self.username,
-            "to": to,
-            "message": message,
-            "bulkSMSMode": bulk_sms_mode as i32
-        });
+        let msg = SMSMessage {
+            username: &self.username,
+            to: to,
+            message: message,
+            from: from,
+            bulkSMSMode: bulk_sms_mode,
+            enqueue: enqueue,
+            keyword: keyword,
+            linkId: link_id,
+            retryDurationInHours: retry_duration_in_hours,
+        };
 
-        let mut resp = self.send_form_data(&self.sms_url, params)?;
+        let mut resp = self.send_form_data(&self.sms_url, msg)?;
         let mut buf = String::new();
         resp.read_to_string(&mut buf)?;
 
@@ -128,17 +150,44 @@ impl AfricasTalkingGateway {
         Ok(val)
     }
 
-    fn send_request(&self, url: &str, data: Option<HashMap<&str, &str>>) -> Result<json::Value> {
+    /// Fetches messages from Africa's Talking API
+    /// [read more..](http://docs.africastalking.com/sms/fetchmessages)
+    ///
+    /// The gateway will return 100 messages at a time, starting with the
+    /// last received id (id of the message that you last processed).
+    /// Specify 0 if this is the first call to the gateway.
+    pub fn fetch_messages(&self, last_received_id: i32) -> Result<json::Value> {
+        let url = format!(
+            "{}?username={}&lastReceivedId={}",
+            self.sms_url,
+            self.username,
+            last_received_id
+        );
+        let mut resp = self.send_request(&url, None)?;
+        if resp.status().as_u16() == 200 {
+            let jsn: json::Value = resp.json()?;
+            Ok(jsn)
+        } else {
+            // raise error
+            Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
+        }
+    }
+
+    fn send_request(
+        &self,
+        url: &str,
+        data: Option<HashMap<&str, &str>>,
+    ) -> Result<reqwest::Response> {
         let mut headers = Headers::new();
         headers.set(Accept::json());
         headers.set(Apikey(self.api_key.clone()));
         let client = reqwest::Client::new();
-        let mut resp = match data {
+        let resp = match data {
             Some(map) => client.post(url).json(&map).send()?,
             None => client.get(url).headers(headers).send()?,
         };
 
-        Ok(resp.json()?)
+        Ok(resp)
     }
 
 
