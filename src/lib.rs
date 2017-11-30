@@ -173,6 +173,84 @@ impl AfricasTalkingGateway {
         }
     }
 
+    /// Creates a subscription
+    /// [read more..](http://docs.africastalking.com/subscriptions/create)
+    pub fn create_subscription(
+        &self,
+        phone_number: &str,
+        short_code: &str,
+        keyword: &str,
+    ) -> Result<json::Value> {
+        let url = format!("{}/create", self.sms_subscription_url);
+        let params = json!({
+                "username": self.username,
+                "phoneNumber": phone_number,
+                "shortCode": short_code,
+                "keyword": keyword
+            });
+
+        let mut resp = self.send_json_request(&url, params)?;
+        if resp.status().as_u16() == 201 {
+            let jsn: json::Value = resp.json()?;
+            Ok(jsn)
+        } else {
+            Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
+        }
+    }
+
+    /// Deletes a subscription
+    pub fn delete_subscription(
+        &self,
+        phone_number: &str,
+        short_code: &str,
+        keyword: &str,
+    ) -> Result<json::Value> {
+        let url = format!("{}/delete", self.sms_subscription_url);
+        let params = json!({
+                "username": self.username,
+                "phoneNumber": phone_number,
+                "shortCode": short_code,
+                "keyword": keyword
+            });
+
+        let mut resp = self.send_json_request(&url, params)?;
+        if resp.status().as_u16() == 201 {
+            let jsn: json::Value = resp.json()?;
+            Ok(jsn)
+        } else {
+            Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
+        }
+    }
+
+    /// Fetches subscriptions
+    /// [read more..](http://docs.africastalking.com/subscriptions/fetchsubscriptions)
+    pub fn fetch_subscriptions(
+        &self,
+        short_code: &str,
+        keyword: &str,
+        last_received_id: i32,
+    ) -> Result<json::Value> {
+        let url = format!(
+            "{}?username={}&shortCode={}&keyword={}&lastReceivedId={}",
+            self.sms_subscription_url,
+            self.username,
+            short_code,
+            keyword,
+            last_received_id
+        );
+
+        let mut resp = self.send_request(&url, None)?;
+        if resp.status().as_u16() == 200 {
+            let jsn: json::Value = resp.json()?;
+            let responses: json::Value = jsn.get("responses").unwrap().clone();
+            Ok(responses)
+        } else {
+            Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
+        }
+    }
+
+
+
     fn send_request(
         &self,
         url: &str,
