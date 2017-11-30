@@ -1,7 +1,5 @@
 ## africastalking-rust
 
-Unofficial AfricasTalking Rust API wrapper
-
 A Rust library for communicating with the Africa's Talking REST API.
 
 
