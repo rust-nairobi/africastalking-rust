@@ -1,8 +1,9 @@
 extern crate africastalking_gateway;
-#[macro_use()]
+#[macro_use]
 extern crate serde_json;
 
 use std::env;
+use std::collections::HashMap;
 use africastalking_gateway::AfricasTalkingGateway;
 
 
@@ -12,25 +13,23 @@ fn main() {
 
     let gateway = AfricasTalkingGateway::new(&username, &apikey, "sandbox");
 
-    let recipient_payload = json!([
-        {
-            "username":"Matt Gathu",
-            "provider":"PaymentProvider",
-            "transferType":"BusinessBuyGoods",
-            "destinationChannel":"supplierProviderChannel",
-            "destinationAccount":"supplierAccount",
-        }
-    ]);
+    let mut recipient_payload: HashMap<&str, &str> =  HashMap::new();
 
-    let recipient_metadata = json!([
-        {
-            "shopId" : "1234",
-            "itemId" : "abcdef"
-        }
-    ]);
+    recipient_payload.insert("username", "Matt Gathu");
+    recipient_payload.insert("provider", "PaymentProvider");
+    recipient_payload.insert("transferType", "BusinessBuyGoods");
+    recipient_payload.insert("destinationChannel", "supplierProviderChannel");
+    recipient_payload.insert("destinationAccount", "supplierAccount");
+
+    let mut recipient_metadata: HashMap<&str, &str> =  HashMap::new();
+
+    recipient_metadata.insert("shopId", "1234");
+    recipient_metadata.insert("itemId" , "abcdef");
+
+    let amount: f32 = 100;
 
     println!(
-        "{:?}", gateway.mobile_payment_b2b_request("My Online Store", recipient_payload, "KES", "100", recipient_metadata); 
+        "{:?}", gateway.mobile_payment_b2b_request("My Online Store", recipient_payload, "KES", amount, recipient_metadata)
         );
 
 }
