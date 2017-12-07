@@ -1,6 +1,4 @@
 extern crate africastalking_gateway;
-#[macro_use]
-extern crate serde_json;
 
 use std::env;
 use std::collections::HashMap;
