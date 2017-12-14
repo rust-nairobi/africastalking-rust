@@ -3,6 +3,18 @@ name = "africastalking_gateway"
 version = "0.1.0"
 authors = ["Matt Gathu <mattgathu@gmail.com>"]
 
+description = "A Rust library for communicating with the Africa's Talking REST API."
+documentation = "https://docs.rs/africastalking_gateway"
+homepage = "https://github.com/rust-nairobi/africastalking-rust"
+repository = "https://github.com/rust-nairobi/africastalking-rust"
+readme = "README.md"
+keywords = ["gateway", "sms", "voice", "payment", "africa's talking", "africa", "talking"]
+categories = ["api-bindings"]
+license = "MIT"
+
+[badges]
+travis-ci = { repository = "rust-nairobi/africastalking-rust"}
+
 [dependencies]
 reqwest = "0.8.1"
 hyper = "0.11.6"
