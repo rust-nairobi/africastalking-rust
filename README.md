@@ -1,5 +1,7 @@
 ## africastalking-rust
 
+[![Build Status](https://travis-ci.org/rust-nairobi/africastalking-rust.svg?branch=master)](https://travis-ci.org/rust-nairobi/africastalking-rust)
+
 A Rust library for communicating with the Africa's Talking REST API.
 
 
