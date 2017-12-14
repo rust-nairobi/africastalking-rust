@@ -507,6 +507,19 @@ impl AfricasTalkingGateway {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::env;
+
     #[test]
     fn it_works() {}
+
+    #[test]
+    fn fetch_user_data() {
+        let username = env::var("AFRICAS_TALKING_USERNAME").unwrap();
+        let apikey = env::var("AFRICAS_TALKING_APIKEY").unwrap();
+        let gway = AfricasTalkingGateway::new(&username, &apikey, "sandbox");
+
+        let data: json::Value = gway.get_user_data().unwrap();
+        assert!(data["UserData"].is_object());
+    }
 }
