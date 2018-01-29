@@ -53,12 +53,18 @@ pub struct SMSMessage<'a> {
     username: &'a str,
     to: &'a str,
     message: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")] bulkSMSMode: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")] from: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")] enqueue: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")] keyword: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")] linkId: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")] retryDurationInHours: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bulkSMSMode: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    from: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    enqueue: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    keyword: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    linkId: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retryDurationInHours: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -159,9 +165,7 @@ impl AfricasTalkingGateway {
     pub fn fetch_messages(&self, last_received_id: i32) -> Result<json::Value> {
         let url = format!(
             "{}?username={}&lastReceivedId={}",
-            self.sms_url,
-            self.username,
-            last_received_id
+            self.sms_url, self.username, last_received_id
         );
         let mut resp = self.send_request(&url, None)?;
         if resp.status().as_u16() == 200 {
@@ -232,11 +236,7 @@ impl AfricasTalkingGateway {
     ) -> Result<json::Value> {
         let url = format!(
             "{}?username={}&shortCode={}&keyword={}&lastReceivedId={}",
-            self.sms_subscription_url,
-            self.username,
-            short_code,
-            keyword,
-            last_received_id
+            self.sms_subscription_url, self.username, short_code, keyword, last_received_id
         );
 
         let mut resp = self.send_request(&url, None)?;
@@ -248,8 +248,6 @@ impl AfricasTalkingGateway {
             Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
         }
     }
-
-
 
     fn send_request(
         &self,
@@ -267,7 +265,6 @@ impl AfricasTalkingGateway {
 
         Ok(resp)
     }
-
 
     fn send_form_data<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::Response> {
         let mut headers = Headers::new();
@@ -503,7 +500,6 @@ impl AfricasTalkingGateway {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
