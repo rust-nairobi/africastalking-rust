@@ -47,24 +47,24 @@ trait UserData {
     fn get_user_data(&self) {}
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[allow(non_snake_case)]
 pub struct SMSMessage<'a> {
-    username: &'a str,
-    to: &'a str,
-    message: &'a str,
+    pub username: &'a str,
+    pub to: &'a str,
+    pub message: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    bulkSMSMode: Option<i32>,
+    pub bulkSMSMode: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    from: Option<&'a str>,
+    pub from: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    enqueue: Option<i32>,
+    pub enqueue: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    keyword: Option<&'a str>,
+    pub keyword: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    linkId: Option<&'a str>,
+    pub linkId: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    retryDurationInHours: Option<i32>,
+    pub retryDurationInHours: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -124,29 +124,7 @@ impl AfricasTalkingGateway {
 
     /// Sends an SMS message
     /// [read more..](http://docs.africastalking.com/sms/sending)
-    pub fn send_message(
-        &self,
-        to: &str,
-        message: &str,
-        from: Option<&str>,
-        bulk_sms_mode: Option<i32>,
-        enqueue: Option<i32>,
-        keyword: Option<&str>,
-        link_id: Option<&str>,
-        retry_duration_in_hours: Option<i32>,
-    ) -> Result<json::Value> {
-        let msg = SMSMessage {
-            username: &self.username,
-            to: to,
-            message: message,
-            from: from,
-            bulkSMSMode: bulk_sms_mode,
-            enqueue: enqueue,
-            keyword: keyword,
-            linkId: link_id,
-            retryDurationInHours: retry_duration_in_hours,
-        };
-
+    pub fn send_message(&self, msg: SMSMessage) -> Result<json::Value> {
         let mut resp = self.send_form_data(&self.sms_url, msg)?;
         let mut buf = String::new();
         resp.read_to_string(&mut buf)?;
