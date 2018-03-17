@@ -42,29 +42,52 @@ error_chain! {
 
 }
 
-#[allow(unused_variables)]
-trait UserData {
-    fn get_user_data(&self) {}
-}
-
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[allow(non_snake_case)]
-pub struct SMSMessage<'a> {
-    pub username: &'a str,
-    pub to: &'a str,
-    pub message: &'a str,
+pub struct SMSMessage {
+    pub username: String,
+    pub to: String,
+    pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bulkSMSMode: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub from: Option<&'a str>,
+    pub from: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enqueue: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keyword: Option<&'a str>,
+    pub keyword: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub linkId: Option<&'a str>,
+    pub linkId: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retryDurationInHours: Option<i32>,
+}
+
+impl SMSMessage {
+    #[allow(non_snake_case)]
+    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
+    pub fn new(
+        username: &str,
+        to: &str,
+        message: &str,
+        bulkSMSMode: Option<i32>,
+        from: Option<String>,
+        enqueue: Option<i32>,
+        keyword: Option<String>,
+        linkId: Option<String>,
+        retryDurationInHours: Option<i32>,
+    ) -> Self {
+        Self {
+            username: username.into(),
+            to: to.into(),
+            message: message.into(),
+            bulkSMSMode,
+            from,
+            enqueue,
+            keyword,
+            linkId,
+            retryDurationInHours,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -140,7 +163,7 @@ impl AfricasTalkingGateway {
     /// The gateway will return 100 messages at a time, starting with the
     /// last received id (id of the message that you last processed).
     /// Specify 0 if this is the first call to the gateway.
-    pub fn fetch_messages(&self, last_received_id: i32) -> Result<json::Value> {
+    pub fn fetch_messages(&self, last_received_id: i32) -> Result<Vec<SMSMessage>> {
         let url = format!(
             "{}?username={}&lastReceivedId={}",
             self.sms_url, self.username, last_received_id
@@ -148,7 +171,8 @@ impl AfricasTalkingGateway {
         let mut resp = self.send_request(&url, None)?;
         if resp.status().as_u16() == 200 {
             let jsn: json::Value = resp.json()?;
-            Ok(jsn)
+            let messages: Vec<SMSMessage> = json::from_value(jsn["SMSMessageData"]["Messages"].clone())?;
+            Ok(messages)
         } else {
             // raise error
             Err(ErrorKind::GatewayError(format!("{}", resp.text()?)).into())
@@ -276,7 +300,7 @@ impl AfricasTalkingGateway {
         let jsn: json::Value = resp.json()?;
         let entries: json::Value = jsn.get("entries").unwrap().clone();
         if jsn["errorMessage"].as_str().unwrap() == "None" {
-            return Ok(entries);
+            Ok(entries)
         } else {
             // raise error
             Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
@@ -306,7 +330,7 @@ impl AfricasTalkingGateway {
         let jsn: json::Value = resp.json()?;
         let entries: json::Value = jsn.get("entries").unwrap().clone();
         if jsn["errorMessage"].as_str().unwrap() == "None" {
-            return Ok(entries);
+            Ok(entries)
         } else {
             // raise error
             Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
@@ -323,7 +347,7 @@ impl AfricasTalkingGateway {
         let mut resp = self.send_form_data(&url, params)?;
         let jsn: json::Value = resp.json()?;
         if jsn["errorMessage"].as_str().unwrap() == "None" {
-            return Ok(jsn);
+            Ok(jsn)
         } else {
             // raise error
             Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
@@ -346,7 +370,7 @@ impl AfricasTalkingGateway {
     ///   }
     /// ]
     /// ```
-    pub fn send_airtime(&self, recipients: json::Value) -> Result<json::Value> {
+    pub fn send_airtime(&self, recipients: &json::Value) -> Result<json::Value> {
         let params = json!({
             "username": self.username,
             "recipients": recipients
@@ -355,8 +379,8 @@ impl AfricasTalkingGateway {
         if resp.status().as_u16() == 201 {
             let jsn: json::Value = resp.json()?;
             let responses: json::Value = jsn.get("responses").unwrap().clone();
-            if jsn["responses"].as_array().unwrap().len() > 0 {
-                return Ok(responses);
+            if !jsn["responses"].as_array().unwrap().is_empty() {
+                Ok(responses)
             } else {
                 // raise error
                 Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
@@ -376,7 +400,7 @@ impl AfricasTalkingGateway {
         currency_code: &str,
         provider_channel: &str,
         amount: f32,
-        metadata: HashMap<&str, &str>,
+        metadata: &HashMap<&str, &str>,
     ) -> Result<json::Value> {
         let params = json!({
             "username": self.username,
@@ -391,8 +415,8 @@ impl AfricasTalkingGateway {
         if resp.status().as_u16() == 201 {
             let jsn: json::Value = resp.json()?;
             let entries: json::Value = jsn.get("entries").unwrap().clone();
-            if jsn["entries"].as_array().unwrap().len() > 0 {
-                return Ok(entries);
+            if !jsn["entries"].as_array().unwrap().is_empty() {
+                Ok(entries)
             } else {
                 // raise error
                 Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
@@ -408,12 +432,12 @@ impl AfricasTalkingGateway {
     pub fn mobile_payment_b2b_request(
         &self,
         product_name: &str,
-        provider_data: HashMap<&str, &str>,
+        provider_data: &HashMap<&str, &str>,
         currency_code: &str,
         amount: f32,
-        metadata: HashMap<&str, &str>,
+        metadata: &HashMap<&str, &str>,
     ) -> Result<json::Value> {
-        for field in vec![
+        for field in &[
             "provider",
             "destination_channel",
             "destination_account",
@@ -428,10 +452,10 @@ impl AfricasTalkingGateway {
         let params = json!({
             "username": self.username,
             "productName": product_name,
-            "provider": provider_data.get("provider").unwrap(),
-            "destinationChannel": provider_data.get("destination_channel").unwrap(),
-            "destinationAccount": provider_data.get("destination_account").unwrap(),
-            "transferType": provider_data.get("transfer_type").unwrap(),
+            "provider": &provider_data["provider"],
+            "destinationChannel": provider_data["destination_channel"],
+            "destinationAccount": provider_data["destination_account"],
+            "transferType": provider_data["transfer_type"],
             "currencyCode": currency_code,
             "amount": amount,
             "metadata": metadata
@@ -452,7 +476,7 @@ impl AfricasTalkingGateway {
     pub fn mobile_payment_b2c_request(
         &self,
         product_name: &str,
-        recipients: json::Value,
+        recipients: &json::Value,
     ) -> Result<json::Value> {
         assert!(
             recipients.as_array().unwrap().len() <= 10,
@@ -468,8 +492,8 @@ impl AfricasTalkingGateway {
         if resp.status().as_u16() == 201 {
             let jsn: json::Value = resp.json()?;
             let entries: json::Value = jsn.get("entries").unwrap().clone();
-            if jsn["entries"].as_array().unwrap().len() > 0 {
-                return Ok(entries);
+            if !jsn["entries"].as_array().unwrap().is_empty() {
+                Ok(entries)
             } else {
                 Err(ErrorKind::GatewayError(format!("{}", jsn["errorMessage"])).into())
             }
@@ -495,5 +519,14 @@ mod tests {
 
         let data: json::Value = gway.get_user_data().unwrap();
         assert!(data["UserData"].is_object());
+    }
+
+    #[test]
+    fn fetch_messages() {
+        let username = env::var("AFRICAS_TALKING_USERNAME").unwrap();
+        let apikey = env::var("AFRICAS_TALKING_APIKEY").unwrap();
+        let gway = AfricasTalkingGateway::new(&username, &apikey, "sandbox");
+
+        let _msgs: Vec<SMSMessage> = gway.fetch_messages(0).unwrap();
     }
 }

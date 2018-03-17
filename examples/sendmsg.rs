@@ -8,9 +8,9 @@ pub fn main() {
     let apikey = env::var("AFRICAS_TALKING_APIKEY").unwrap();
     let gway = AfricasTalkingGateway::new(&username, &apikey, "sandbox");
     let msg = SMSMessage {
-        username: &username,
-        to: "+254702006545",
-        message: "hello matt",
+        username,
+        to: "+254702006545".to_string(),
+        message: "hello matt".to_string(),
         ..Default::default()
     };
 
