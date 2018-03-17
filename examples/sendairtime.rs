@@ -17,5 +17,5 @@ pub fn main() {
      }
     ]);
 
-    println!("{:?}", gateway.send_airtime(recipients));
+    println!("{:?}", gateway.send_airtime(&recipients));
 }

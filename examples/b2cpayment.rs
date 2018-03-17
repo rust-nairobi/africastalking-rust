@@ -25,6 +25,6 @@ pub fn main() {
 
     println!(
         "{:?}",
-        gateway.mobile_payment_b2c_request("My Online Store", recipients)
+        gateway.mobile_payment_b2c_request("My Online Store", &recipients)
     );
 }

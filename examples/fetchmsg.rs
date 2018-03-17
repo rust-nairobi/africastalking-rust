@@ -8,5 +8,5 @@ pub fn main() {
     let apikey = env::var("AFRICAS_TALKING_APIKEY").unwrap();
     let gway = AfricasTalkingGateway::new(&username, &apikey, "sandbox");
 
-    println!("{}", gway.fetch_messages(0).unwrap());
+    println!("{:?}", gway.fetch_messages(0).unwrap());
 }
