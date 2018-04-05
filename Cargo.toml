@@ -8,7 +8,7 @@ documentation = "https://docs.rs/africastalking_gateway"
 homepage = "https://github.com/rust-nairobi/africastalking-rust"
 repository = "https://github.com/rust-nairobi/africastalking-rust"
 readme = "README.md"
-keywords = ["gateway", "sms", "voice", "payment", "africa", "talking"]
+keywords = ["gateway", "sms", "voice", "payment"]
 categories = ["api-bindings"]
 license = "MIT"
 
