@@ -1,10 +1,8 @@
-// #![deny(missing_docs,
-//         missing_debug_implementations, missing_copy_implementations,
-//         trivial_casts, trivial_numeric_casts,
-//         unsafe_code,
-//         unstable_features,
-//         unused_import_braces, unused_qualifications)]
-//
+//! A Rust library for communicating with the Africa's Talking REST API.
+#![deny(missing_debug_implementations, missing_copy_implementations, trivial_casts,
+        trivial_numeric_casts, unsafe_code, unstable_features, unused_import_braces,
+        unused_qualifications)]
+
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
@@ -16,11 +14,12 @@ extern crate serde_derive;
 #[macro_use]
 extern crate serde_json as json;
 
-use std::io::Read;
 use std::collections::HashMap;
+use std::io::Read;
 
-use serde::ser::Serialize;
 use hyper::header::{Accept, Headers};
+use serde::ser::Serialize;
+
 header! { (Apikey, "apikey") => [String] }
 
 #[allow(unused_variables)]
@@ -42,27 +41,46 @@ error_chain! {
 
 }
 
+/// SMS Message Struct
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[allow(non_snake_case)]
 pub struct SMSMessage {
+    /// Africa's Talking account username
     pub username: String,
+
+    /// number to send SMS to
     pub to: String,
+
+    /// SMS message
     pub message: String,
+
+    /// bulk mode option
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bulkSMSMode: Option<i32>,
+    
+    /// SMS source
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<String>,
+
+    /// enqueue SMS option
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enqueue: Option<i32>,
+
+    /// keyword
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keyword: Option<String>,
+
+    /// link id
     #[serde(skip_serializing_if = "Option::is_none")]
     pub linkId: Option<String>,
+
+    /// retry duration in hours
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retryDurationInHours: Option<i32>,
 }
 
 impl SMSMessage {
+    /// creates a new SMS message
     #[allow(non_snake_case)]
     #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     pub fn new(
@@ -90,6 +108,7 @@ impl SMSMessage {
     }
 }
 
+/// Gateway struct
 #[derive(Debug)]
 pub struct AfricasTalkingGateway {
     username: String,
@@ -106,6 +125,7 @@ pub struct AfricasTalkingGateway {
 }
 
 impl AfricasTalkingGateway {
+    /// creates a gateway instance
     pub fn new(username: &str, api_key: &str, env: &str) -> Self {
         let api_host = if env == "sandbox" {
             "https://api.sandbox.africastalking.com"
@@ -138,6 +158,7 @@ impl AfricasTalkingGateway {
         }
     }
 
+    /// Gets user data
     pub fn get_user_data(&self) -> Result<json::Value> {
         let url = format!("{}?username={}", self.user_data_url, self.username);
         let val: json::Value = self.send_request(&url, None)?.json()?;
@@ -171,7 +192,8 @@ impl AfricasTalkingGateway {
         let mut resp = self.send_request(&url, None)?;
         if resp.status().as_u16() == 200 {
             let jsn: json::Value = resp.json()?;
-            let messages: Vec<SMSMessage> = json::from_value(jsn["SMSMessageData"]["Messages"].clone())?;
+            let messages: Vec<SMSMessage> =
+                json::from_value(jsn["SMSMessageData"]["Messages"].clone())?;
             Ok(messages)
         } else {
             // raise error
