@@ -37,7 +37,6 @@ error_chain! {
         } }
 
 }
-
 /// SMS Message Struct
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[allow(non_snake_case)]

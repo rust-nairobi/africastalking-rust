@@ -4,6 +4,23 @@
 
 A Rust library for communicating with the Africa's Talking REST API.
 
+### Requirements
+
+OpenSSL.
+*Ubuntu:*
+
+```
+sudo apt-get install libssl-dev
+```
+
+*Fedora:*
+
+```
+sudo dnf install openssl-devel
+```
+
+
+
 
 ### installation
 
