@@ -1,6 +1,6 @@
 [package]
 name = "africastalking_gateway"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Matt Gathu <mattgathu@gmail.com>", "Brian Orwe <brian.orwe@gmail.com>"]
 
 description = "A Rust library for communicating with the Africa's Talking REST API."
