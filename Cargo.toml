@@ -16,8 +16,7 @@ license = "MIT"
 travis-ci = { repository = "rust-nairobi/africastalking-rust"}
 
 [dependencies]
-reqwest = "0.8.1"
-hyper = "0.11.6"
+reqwest = { version = "0.11", features = ["json","blocking"] }
 serde = "1.0.37"
 serde_derive = "1.0.37"
 serde_json = "1.0"
