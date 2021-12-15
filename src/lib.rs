@@ -5,8 +5,6 @@
 
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
-extern crate hyper;
 extern crate reqwest;
 extern crate serde;
 #[macro_use]
@@ -14,13 +12,12 @@ extern crate serde_derive;
 #[macro_use]
 extern crate serde_json as json;
 
+use reqwest::header::{HeaderMap,ACCEPT};
+
 use std::collections::HashMap;
 use std::io::Read;
 
-use hyper::header::{Accept, Headers};
 use serde::ser::Serialize;
-
-header! { (Apikey, "apikey") => [String] }
 
 #[allow(unused_variables)]
 trait HttpAccessMethods {
@@ -40,7 +37,6 @@ error_chain! {
         } }
 
 }
-
 /// SMS Message Struct
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[allow(non_snake_case)]
@@ -277,11 +273,11 @@ impl AfricasTalkingGateway {
         &self,
         url: &str,
         data: Option<HashMap<&str, &str>>,
-    ) -> Result<reqwest::Response> {
-        let mut headers = Headers::new();
-        headers.set(Accept::json());
-        headers.set(Apikey(self.api_key.clone()));
-        let client = reqwest::Client::new();
+    ) -> Result<reqwest::blocking::Response> {
+        let mut headers = HeaderMap::new();
+        headers.insert(ACCEPT,"application/json".parse().unwrap());
+        headers.insert("Apikey",self.api_key.clone().parse().unwrap());
+        let client = reqwest::blocking::Client::new();
         let resp = match data {
             Some(map) => client.post(url).json(&map).send()?,
             None => client.get(url).headers(headers).send()?,
@@ -290,21 +286,21 @@ impl AfricasTalkingGateway {
         Ok(resp)
     }
 
-    fn send_form_data<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::Response> {
-        let mut headers = Headers::new();
-        headers.set(Accept::json());
-        headers.set(Apikey(self.api_key.clone()));
-        let client = reqwest::Client::new();
+    fn send_form_data<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::blocking::Response> {
+        let mut headers = HeaderMap::new();
+        headers.insert(ACCEPT, "application/json".parse().unwrap());
+        headers.insert("Apikey",self.api_key.clone().parse().unwrap());
+        let client = reqwest::blocking::Client::new();
         let resp = client.post(url).form(&data).headers(headers).send()?;
 
         Ok(resp)
     }
 
-    fn send_json_request<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::Response> {
-        let mut headers = Headers::new();
-        headers.set(Accept::json());
-        headers.set(Apikey(self.api_key.clone()));
-        let client = reqwest::Client::new();
+    fn send_json_request<T: Serialize>(&self, url: &str, data: T) -> Result<reqwest::blocking::Response> {
+        let mut headers = HeaderMap::new();
+        headers.insert(ACCEPT, "application/json".parse().unwrap());
+        headers.insert("Apikey",self.api_key.clone().parse().unwrap());
+        let client = reqwest::blocking::Client::new();
         let resp = client.post(url).json(&data).headers(headers).send()?;
 
         Ok(resp)
